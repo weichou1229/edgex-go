@@ -208,7 +208,7 @@ func TestAddEvent(t *testing.T) {
 
 			reader := strings.NewReader(string(jsonData))
 
-			req, err := http.NewRequest(http.MethodPost, v2.ApiEventProfileNameDeviceNameRoute, reader)
+			req, err := http.NewRequest(http.MethodPost, v2.ApiEventProfileNameDeviceNameSourceNameRoute, reader)
 			req = mux.SetURLVars(req, map[string]string{v2.ProfileName: testCase.ProfileName, v2.DeviceName: testCase.DeviceName})
 			require.NoError(t, err)
 
