@@ -1,5 +1,7 @@
-[Writable]
 ResendLimit = 2
+ResendDelayTime = 5
+
+[Writable]
 LogLevel = 'INFO'
   [Writable.InsecureSecrets]
     [Writable.InsecureSecrets.DB]

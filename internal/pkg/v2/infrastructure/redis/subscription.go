@@ -243,3 +243,23 @@ func updateSubscription(conn redis.Conn, subscription models.Subscription) error
 	}
 	return nil
 }
+
+func subscriptionsByCategoriesAndLabels(conn redis.Conn, offset int, limit int, categories []string, labels []string) (subscriptions []models.Subscription, edgeXerr errors.EdgeX) {
+	end := offset + limit - 1
+	if limit == -1 { //-1 limit means that clients want to retrieve all remaining records after offset from DB, so specifying -1 for end
+		end = limit
+	}
+	var redisKeys []string
+	for _, c := range categories {
+		redisKeys = append(redisKeys, CreateKey(SubscriptionCollectionCategory, c))
+	}
+	for _, label := range labels {
+		redisKeys = append(redisKeys, CreateKey(SubscriptionCollectionLabel, label))
+	}
+
+	objects, err := unionObjectsByKeys(conn, offset, end, redisKeys...)
+	if err != nil {
+		return subscriptions, errors.NewCommonEdgeXWrapper(err)
+	}
+	return convertObjectsToSubscriptions(objects)
+}

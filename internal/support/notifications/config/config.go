@@ -27,10 +27,13 @@ type ConfigurationStruct struct {
 	Service     bootstrapConfig.ServiceInfo
 	Smtp        SmtpInfo
 	SecretStore bootstrapConfig.SecretStoreInfo
+	// ResendLimit is the times to resend the critical notification
+	ResendLimit int
+	// ResendDelayTime is the delay second time to trigger the critical notification sending
+	ResendDelayTime int
 }
 
 type WritableInfo struct {
-	ResendLimit     int
 	LogLevel        string
 	InsecureSecrets bootstrapConfig.InsecureSecrets
 }

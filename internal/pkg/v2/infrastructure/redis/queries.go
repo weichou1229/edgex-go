@@ -192,7 +192,7 @@ func unionObjectsByKeys(conn redis.Conn, offset int, end int, redisKeys ...strin
 	if len(storeKeys) == 0 {
 		return nil, nil
 	}
-	if end >= len(storeKeys) {
+	if end >= len(storeKeys) || end == -1 {
 		storeKeys = storeKeys[offset:]
 	} else { // as end index in golang re-slice is exclusive, increment the end index to ensure the end could be inclusive
 		storeKeys = storeKeys[offset : end+1]
