@@ -9,15 +9,21 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+
 	"io/ioutil"
 	"net/http"
 	"strconv"
 	"strings"
 
+	"github.com/edgexfoundry/edgex-go/internal/pkg"
 	"github.com/edgexfoundry/edgex-go/internal/pkg/correlation"
+
 	"github.com/edgexfoundry/go-mod-core-contracts/v2/clients"
+	"github.com/edgexfoundry/go-mod-core-contracts/v2/clients/logger"
 	"github.com/edgexfoundry/go-mod-core-contracts/v2/errors"
 	contractsV2 "github.com/edgexfoundry/go-mod-core-contracts/v2/v2"
+	commonDTO "github.com/edgexfoundry/go-mod-core-contracts/v2/v2/dtos/common"
+
 	"github.com/gorilla/mux"
 )
 
@@ -25,6 +31,14 @@ func WriteHttpHeader(w http.ResponseWriter, ctx context.Context, statusCode int)
 	w.Header().Set(clients.CorrelationHeader, correlation.FromContext(ctx))
 	w.Header().Set(clients.ContentType, clients.ContentTypeJSON)
 	w.WriteHeader(statusCode)
+}
+
+func WriteErrorResponse(w http.ResponseWriter, ctx context.Context, lc logger.LoggingClient, err errors.EdgeX) {
+	lc.Error(err.Error(), clients.CorrelationHeader, correlation.FromContext(ctx))
+	lc.Debug(err.DebugMessages(), clients.CorrelationHeader, correlation.FromContext(ctx))
+	errResponses := commonDTO.NewBaseResponse("", err.Message(), err.Code())
+	WriteHttpHeader(w, ctx, err.Code())
+	pkg.Encode(errResponses, w, lc)
 }
 
 func ParseGetAllObjectsRequestQueryString(r *http.Request, minOffset int, maxOffset int, minLimit int, maxLimit int) (offset int, limit int, labels []string, err errors.EdgeX) {
