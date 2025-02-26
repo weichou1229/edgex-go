@@ -14,6 +14,11 @@ import (
 	"strings"
 )
 
+const (
+	eventColumns   = "event.id, devicename, profilename, sourcename, origin, tags"
+	readingColumns = "event_id, origin, value, binaryvalue, objectvalue, devicename, profilename, resourcename, valuetype, units, mediatype, tags"
+)
+
 // ----------------------------------------------------------------------------------
 // SQL statements for INSERT operations
 // ----------------------------------------------------------------------------------
@@ -67,6 +72,13 @@ func sqlQueryFieldsByColAndLikePat(table string, fields []string, columns ...str
 //	return fmt.Sprintf("SELECT * FROM %s ORDER BY %s DESC OFFSET $1 LIMIT $2", table, createdCol)
 //}
 
+// sqlQueryAllAndDescWithConds returns the SQL statement for selecting all rows from the table by the given columns composed of the where condition with descending by descCol
+func sqlQueryAllWithConds(table string, columns ...string) string {
+	whereCondition := constructWhereCondition(columns...)
+
+	return fmt.Sprintf("SELECT * FROM %s WHERE %s", table, whereCondition)
+}
+
 // sqlQueryAllWithPaginationDescByCol returns the SQL statement for selecting all rows from the table with the pagination and desc by descCol
 func sqlQueryAllWithPaginationDescByCol(table string, descCol string) string {
 	return fmt.Sprintf("SELECT * FROM %s ORDER BY %s DESC OFFSET $1 LIMIT $2", table, descCol)
@@ -79,6 +91,13 @@ func sqlQueryAllAndDescWithConds(table string, descCol string, columns ...string
 	return fmt.Sprintf("SELECT * FROM %s WHERE %s ORDER BY %s DESC", table, whereCondition, descCol)
 }
 
+// sqlQueryAllReadingAndDescWithConds returns the SQL statement for selecting all rows from the table by the given columns composed of the where condition with descending by descCol
+func sqlQueryAllReadingAndDescWithConds(descCol string, columns ...string) string {
+	whereCondition := constructWhereCondition(columns...)
+
+	return fmt.Sprintf("SELECT %s FROM %s JOIN %s on reading.device_info_id = device_info.id WHERE %s ORDER BY %s DESC", readingColumns, readingTableName, deviceInfoTableName, whereCondition, descCol)
+}
+
 // sqlQueryAllAndDescWithCondsAndPag returns the SQL statement for selecting all rows from the table by the given columns composed of the where condition
 // with descending by descCol and pagination
 func sqlQueryAllAndDescWithCondsAndPag(table string, descCol string, columns ...string) string {
@@ -86,6 +105,13 @@ func sqlQueryAllAndDescWithCondsAndPag(table string, descCol string, columns ...
 	whereCondition := constructWhereCondition(columns...)
 
 	return fmt.Sprintf("SELECT * FROM %s WHERE %s ORDER BY %s DESC OFFSET $%d LIMIT $%d", table, whereCondition, descCol, columnCount+1, columnCount+2)
+}
+
+func sqlQueryAllEventAndDescWithCondsAndPag(descCol string, columns ...string) string {
+	columnCount := len(columns)
+	whereCondition := constructWhereCondition(columns...)
+
+	return fmt.Sprintf("SELECT %s FROM %s join %s on event.device_info_id = device_info.id WHERE %s ORDER BY %s DESC OFFSET $%d LIMIT $%d", eventColumns, eventTableName, deviceInfoTableName, whereCondition, descCol, columnCount+1, columnCount+2)
 }
 
 // sqlQueryAllAndDescWithCondsAndPagAndUpperLimitTime returns the SQL statement for selecting all rows from the table by the given columns composed of the where condition
@@ -134,6 +160,11 @@ func sqlQueryAllByColWithPaginationAndTimeRange(table string, columns ...string)
 // sqlQueryAllById returns the SQL statement for selecting all rows from the table by id.
 func sqlQueryAllById(table string) string {
 	return fmt.Sprintf("SELECT * FROM %s WHERE %s = $1", table, idCol)
+}
+
+// sqlQueryAllEventById returns the SQL statement for selecting all rows from the event table by id.
+func sqlQueryAllEventById() string {
+	return fmt.Sprintf("SELECT %s FROM %s JOIN %s on event.device_info_id = device_info.id WHERE core_data.event.id=$1", eventColumns, eventTableName, deviceInfoTableName)
 }
 
 // sqlQueryContentById returns the SQL statement for selecting content column by the specified id.
@@ -196,6 +227,12 @@ func sqlQueryCount(table string) string {
 func sqlQueryCountByCol(table string, columns ...string) string {
 	whereCondition := constructWhereCondition(columns...)
 	return fmt.Sprintf("SELECT COUNT(*) FROM %s WHERE %s", table, whereCondition)
+}
+
+// sqlQueryCountEventByCol returns the SQL statement for counting the number of rows in the table by the given column name.
+func sqlQueryCountEventByCol(columns ...string) string {
+	whereCondition := constructWhereCondition(columns...)
+	return fmt.Sprintf("SELECT COUNT(*) FROM %s join %s on event.device_info_id = device_info.id WHERE %s", eventTableName, deviceInfoTableName, whereCondition)
 }
 
 // sqlQueryCountByTimeRangeCol returns the SQL statement for counting the number of rows in the table

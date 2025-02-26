@@ -1,5 +1,5 @@
 //
-// Copyright (C) 2024 IOTech Ltd
+// Copyright (C) 2024-2025 IOTech Ltd
 //
 // SPDX-License-Identifier: Apache-2.0
 
@@ -7,7 +7,6 @@ package postgres
 
 import (
 	"context"
-	"encoding/json"
 	stdErrs "errors"
 	"fmt"
 	"time"
@@ -42,6 +41,12 @@ func (c *Client) AddEvent(e model.Event) (model.Event, errors.EdgeX) {
 	if e.Id == "" {
 		e.Id = uuid.NewString()
 	}
+
+	deviceInfoId, err := c.deviceInfoIdByEvent(e)
+	if err != nil {
+		return model.Event{}, errors.NewCommonEdgeXWrapper(err)
+	}
+
 	event := model.Event{
 		Id:          e.Id,
 		DeviceName:  e.DeviceName,
@@ -50,37 +55,30 @@ func (c *Client) AddEvent(e model.Event) (model.Event, errors.EdgeX) {
 		Origin:      e.Origin,
 		Tags:        e.Tags,
 	}
-	tagsBytes, err := json.Marshal(event.Tags)
-	if err != nil {
-		return model.Event{}, errors.NewCommonEdgeX(errors.KindServerError, "unable to JSON marshal event tags", err)
-	}
 
-	err = pgx.BeginFunc(ctx, c.ConnPool, func(tx pgx.Tx) error {
+	pgxErr := pgx.BeginFunc(ctx, c.ConnPool, func(tx pgx.Tx) error {
 		// insert event in a transaction
-		_, err = tx.Exec(
+		_, pgxErr := tx.Exec(
 			ctx,
-			sqlInsert(eventTableName, idCol, deviceNameCol, profileNameCol, sourceNameCol, originCol, tagsCol),
+			sqlInsert(eventTableName, idCol, deviceInfoIdFKCol, originCol),
 			event.Id,
-			event.DeviceName,
-			event.ProfileName,
-			event.SourceName,
+			deviceInfoId,
 			event.Origin,
-			tagsBytes,
 		)
-		if err != nil {
-			return pgClient.WrapDBError("failed to insert event", err)
+		if pgxErr != nil {
+			return pgClient.WrapDBError("failed to insert event", pgxErr)
 		}
 
 		// insert readings in a transaction
-		err = addReadingsInTx(tx, e.Readings, e.Id)
-		if err != nil {
-			return errors.NewCommonEdgeXWrapper(err)
+		pgxErr = c.addReadingsInTx(tx, e.Readings, e.Id)
+		if pgxErr != nil {
+			return errors.NewCommonEdgeXWrapper(pgxErr)
 		}
 		return nil
 	})
 
-	if err != nil {
-		return model.Event{}, errors.NewCommonEdgeXWrapper(err)
+	if pgxErr != nil {
+		return model.Event{}, errors.NewCommonEdgeXWrapper(pgxErr)
 	}
 
 	// return the event with readings to ensure readingsPersistedCounter will be increased
@@ -93,7 +91,7 @@ func (c *Client) EventById(id string) (model.Event, errors.EdgeX) {
 	ctx := context.Background()
 	var event model.Event
 
-	rows, err := c.ConnPool.Query(ctx, sqlQueryAllById(eventTableName), id)
+	rows, err := c.ConnPool.Query(ctx, sqlQueryAllEventById(), id)
 	if err != nil {
 		return event, pgClient.WrapDBError(fmt.Sprintf("failed to query event with id '%s'", id), err)
 	}
@@ -105,7 +103,7 @@ func (c *Client) EventById(id string) (model.Event, errors.EdgeX) {
 		}
 
 		// query reading by the specific even_id and origin descending
-		readings, err := queryReadings(ctx, c.ConnPool, sqlQueryAllAndDescWithConds(readingTableName, originCol, eventIdFKCol), e.Id)
+		readings, err := queryReadings(ctx, c.ConnPool, sqlQueryAllReadingAndDescWithConds(originCol, eventIdFKCol), e.Id)
 		if err != nil {
 			return model.Event{}, err
 		}
@@ -130,7 +128,7 @@ func (c *Client) EventTotalCount() (uint32, errors.EdgeX) {
 
 // EventCountByDeviceName returns the count of Event associated a specific Device from db
 func (c *Client) EventCountByDeviceName(deviceName string) (uint32, errors.EdgeX) {
-	sqlStatement := sqlQueryCountByCol(eventTableName, deviceNameCol)
+	sqlStatement := sqlQueryCountEventByCol(deviceNameCol)
 
 	return getTotalRowsCount(context.Background(), c.ConnPool, sqlStatement, deviceName)
 }
@@ -155,7 +153,7 @@ func (c *Client) EventCountByDeviceNameAndSourceNameAndLimit(deviceName, sourceN
 func (c *Client) EventsByDeviceName(offset int, limit int, name string) ([]model.Event, errors.EdgeX) {
 	offset, validLimit := getValidOffsetAndLimit(offset, limit)
 
-	sqlStatement := sqlQueryAllAndDescWithCondsAndPag(eventTableName, originCol, deviceNameCol)
+	sqlStatement := sqlQueryAllEventAndDescWithCondsAndPag(originCol, deviceNameCol)
 
 	events, err := queryEvents(context.Background(), c.ConnPool, sqlStatement, name, offset, validLimit)
 	if err != nil {
@@ -295,7 +293,7 @@ func queryEvents(ctx context.Context, connPool *pgxpool.Pool, sql string, args .
 		}
 
 		// query reading by the specific even_id and origin descending
-		readings, err := queryReadings(ctx, connPool, sqlQueryAllAndDescWithConds(readingTableName, originCol, eventIdFKCol), event.Id)
+		readings, err := queryReadings(ctx, connPool, sqlQueryAllReadingAndDescWithConds(originCol, eventIdFKCol), event.Id)
 
 		if err != nil {
 			return model.Event{}, err

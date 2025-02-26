@@ -23,7 +23,7 @@ import (
 
 var (
 	// insertReadingCols defines the reading table columns in slice used in inserting readings
-	insertReadingCols = []string{idCol, eventIdFKCol, deviceNameCol, profileNameCol, resourceNameCol, originCol, valueTypeCol, unitsCol, tagsCol, valueCol, mediaTypeCol, binaryValueCol, objectValueCol}
+	insertReadingCols = []string{eventIdFKCol, deviceInfoIdFKCol, originCol, valueCol, binaryValueCol, objectValueCol}
 )
 
 func (c *Client) ReadingTotalCount() (uint32, errors.EdgeX) {
@@ -326,7 +326,7 @@ func deleteReadingsBySubQuery(ctx context.Context, tx pgx.Tx, subQuerySql string
 
 // addReadingsInTx converts reading interface to BinaryReading/ObjectReading/SimpleReading structs first based on the reading value type
 // and then perform the CopyFromSlice transaction to insert readings in batch
-func addReadingsInTx(tx pgx.Tx, readings []model.Reading, eventId string) error {
+func (c *Client) addReadingsInTx(tx pgx.Tx, readings []model.Reading, eventId string) error {
 	var readingDBModels []dbModels.Reading
 
 	for _, r := range readings {
@@ -381,35 +381,27 @@ func addReadingsInTx(tx pgx.Tx, readings []model.Reading, eventId string) error 
 		strings.Split(readingTableName, "."),
 		insertReadingCols,
 		pgx.CopyFromSlice(len(readingDBModels), func(i int) ([]any, error) {
-			var tagsBytes []byte
 			var objectValueBytes []byte
 			var err error
 
 			r := readingDBModels[i]
-			if r.Tags != nil {
-				tagsBytes, err = json.Marshal(r.Tags)
-				if err != nil {
-					return nil, errors.NewCommonEdgeX(errors.KindServerError, "unable to JSON marshal reading tags", err)
-				}
-			}
 			if r.ObjectValue != nil {
 				objectValueBytes, err = json.Marshal(r.ObjectValue)
 				if err != nil {
 					return nil, errors.NewCommonEdgeX(errors.KindServerError, "unable to JSON marshal reading ObjectValue", err)
 				}
 			}
+
+			deviceInfoId, err := c.deviceInfoIdByReading(r)
+			if err != nil {
+				return nil, errors.NewCommonEdgeX(errors.KindServerError, "unable to retrieve deviceInfo", err)
+			}
+
 			return []any{
-				r.Id,
 				eventId,
-				r.DeviceName,
-				r.ProfileName,
-				r.ResourceName,
+				deviceInfoId,
 				r.Origin,
-				r.ValueType,
-				r.Units,
-				tagsBytes,
 				r.Value,
-				r.MediaType,
 				r.BinaryValue,
 				objectValueBytes,
 			}, nil
