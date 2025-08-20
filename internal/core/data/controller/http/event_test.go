@@ -162,7 +162,7 @@ func TestAddEvent(t *testing.T) {
 
 	noSimpleValue := validRequest
 	noSimpleValue.Event.Readings = []dtos.BaseReading{testReading}
-	noSimpleValue.Event.Readings[0].Value = ""
+	noSimpleValue.Event.Readings[0].SimpleReading.Value = ""
 	noBinaryValue := validRequest
 	noBinaryValue.Event.Readings = []dtos.BaseReading{{
 		DeviceName:   TestDeviceName,

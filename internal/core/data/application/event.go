@@ -21,6 +21,7 @@ import (
 	"github.com/edgexfoundry/go-mod-core-contracts/v4/models"
 
 	"github.com/edgexfoundry/edgex-go/internal/core/data/container"
+	"github.com/edgexfoundry/edgex-go/internal/core/data/query"
 	"github.com/edgexfoundry/edgex-go/internal/pkg/correlation"
 	"github.com/edgexfoundry/edgex-go/internal/pkg/utils"
 
@@ -188,10 +189,10 @@ func (a *CoreDataApp) DeleteEventsByDeviceName(deviceName string, dic *di.Contai
 }
 
 // AllEvents query events by offset and limit
-func (a *CoreDataApp) AllEvents(offset int, limit int, dic *di.Container) (events []dtos.Event, totalCount uint32, err errors.EdgeX) {
+func (a *CoreDataApp) AllEvents(parms query.Parameters, dic *di.Container) (events []dtos.Event, totalCount uint32, err errors.EdgeX) {
 	dbClient := container.DBClientFrom(dic.Get)
 
-	eventModels, err := dbClient.AllEvents(offset, limit)
+	eventModels, err := dbClient.AllEvents(parms.Offset, parms.Limit)
 	if err != nil {
 		return events, totalCount, errors.NewCommonEdgeXWrapper(err)
 	}
@@ -199,7 +200,10 @@ func (a *CoreDataApp) AllEvents(offset int, limit int, dic *di.Container) (event
 	for i, e := range eventModels {
 		events[i] = dtos.FromEventModelToDTO(e)
 	}
-	if offset < 0 {
+	for _, event := range events {
+		processReadingDTOs(parms, event.Readings)
+	}
+	if parms.Offset < 0 {
 		return events, 0, err // skip total count
 	}
 
@@ -207,21 +211,22 @@ func (a *CoreDataApp) AllEvents(offset int, limit int, dic *di.Container) (event
 	if err != nil {
 		return events, totalCount, errors.NewCommonEdgeXWrapper(err)
 	}
-	cont, err := utils.CheckCountRange(totalCount, offset, limit)
+	cont, err := utils.CheckCountRange(totalCount, parms.Offset, parms.Limit)
 	if !cont {
 		return []dtos.Event{}, totalCount, err
 	}
+
 	return events, totalCount, nil
 }
 
 // EventsByDeviceName query events with offset, limit and name
-func (a *CoreDataApp) EventsByDeviceName(offset int, limit int, name string, dic *di.Container) (events []dtos.Event, totalCount uint32, err errors.EdgeX) {
+func (a *CoreDataApp) EventsByDeviceName(parms query.Parameters, name string, dic *di.Container) (events []dtos.Event, totalCount uint32, err errors.EdgeX) {
 	if name == "" {
 		return events, totalCount, errors.NewCommonEdgeX(errors.KindContractInvalid, "name is empty", nil)
 	}
 	dbClient := container.DBClientFrom(dic.Get)
 
-	eventModels, err := dbClient.EventsByDeviceName(offset, limit, name)
+	eventModels, err := dbClient.EventsByDeviceName(parms.Offset, parms.Limit, name)
 	if err != nil {
 		return events, totalCount, errors.NewCommonEdgeXWrapper(err)
 	}
@@ -229,7 +234,7 @@ func (a *CoreDataApp) EventsByDeviceName(offset int, limit int, name string, dic
 	for i, e := range eventModels {
 		events[i] = dtos.FromEventModelToDTO(e)
 	}
-	if offset < 0 {
+	if parms.Offset < 0 {
 		return events, 0, err // skip total count
 	}
 
@@ -237,7 +242,7 @@ func (a *CoreDataApp) EventsByDeviceName(offset int, limit int, name string, dic
 	if err != nil {
 		return events, totalCount, errors.NewCommonEdgeXWrapper(err)
 	}
-	cont, err := utils.CheckCountRange(totalCount, offset, limit)
+	cont, err := utils.CheckCountRange(totalCount, parms.Offset, parms.Limit)
 	if !cont {
 		return []dtos.Event{}, totalCount, err
 	}
@@ -245,10 +250,10 @@ func (a *CoreDataApp) EventsByDeviceName(offset int, limit int, name string, dic
 }
 
 // EventsByTimeRange query events with offset, limit and time range
-func (a *CoreDataApp) EventsByTimeRange(startTime int64, endTime int64, offset int, limit int, dic *di.Container) (events []dtos.Event, totalCount uint32, err errors.EdgeX) {
+func (a *CoreDataApp) EventsByTimeRange(parms query.Parameters, dic *di.Container) (events []dtos.Event, totalCount uint32, err errors.EdgeX) {
 	dbClient := container.DBClientFrom(dic.Get)
 
-	eventModels, err := dbClient.EventsByTimeRange(startTime, endTime, offset, limit)
+	eventModels, err := dbClient.EventsByTimeRange(parms.Start, parms.End, parms.Offset, parms.Limit)
 	if err != nil {
 		return events, totalCount, errors.NewCommonEdgeXWrapper(err)
 	}
@@ -256,15 +261,15 @@ func (a *CoreDataApp) EventsByTimeRange(startTime int64, endTime int64, offset i
 	for i, e := range eventModels {
 		events[i] = dtos.FromEventModelToDTO(e)
 	}
-	if offset < 0 {
+	if parms.Offset < 0 {
 		return events, 0, err // skip total count
 	}
 
-	totalCount, err = dbClient.EventCountByTimeRange(startTime, endTime)
+	totalCount, err = dbClient.EventCountByTimeRange(parms.Start, parms.End)
 	if err != nil {
 		return events, totalCount, errors.NewCommonEdgeXWrapper(err)
 	}
-	cont, err := utils.CheckCountRange(totalCount, offset, limit)
+	cont, err := utils.CheckCountRange(totalCount, parms.Offset, parms.Limit)
 	if !cont {
 		return []dtos.Event{}, totalCount, err
 	}

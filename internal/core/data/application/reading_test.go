@@ -8,6 +8,7 @@ package application
 
 import (
 	"context"
+	"github.com/edgexfoundry/edgex-go/internal/core/data/query"
 	"net/http"
 	"testing"
 	"time"
@@ -60,7 +61,7 @@ func TestAllReadings(t *testing.T) {
 	}
 	for _, testCase := range tests {
 		t.Run(testCase.name, func(t *testing.T) {
-			readings, total, err := AllReadings(testCase.offset, testCase.limit, dic)
+			readings, total, err := AllReadings(query.Parameters{Offset: testCase.offset, Limit: testCase.limit}, dic)
 			if testCase.errorExpected {
 				require.Error(t, err)
 				assert.NotEmpty(t, err.Error(), "Error message is empty")
@@ -113,7 +114,7 @@ func TestReadingsByTimeRange(t *testing.T) {
 	}
 	for _, testCase := range tests {
 		t.Run(testCase.name, func(t *testing.T) {
-			readings, totalCount, err := ReadingsByTimeRange(testCase.start, testCase.end, testCase.offset, testCase.limit, dic)
+			readings, totalCount, err := ReadingsByTimeRange(query.Parameters{Start: testCase.start, End: testCase.end, Offset: testCase.offset, Limit: testCase.limit}, dic)
 			if testCase.errorExpected {
 				require.Error(t, err)
 				assert.NotEmpty(t, err.Error(), "Error message is empty")
@@ -160,7 +161,7 @@ func TestReadingsByResourceName(t *testing.T) {
 	}
 	for _, testCase := range tests {
 		t.Run(testCase.name, func(t *testing.T) {
-			readings, total, err := ReadingsByResourceName(testCase.offset, testCase.limit, testCase.resourceName, dic)
+			readings, total, err := ReadingsByResourceName(query.Parameters{Offset: testCase.offset, Limit: testCase.limit}, testCase.resourceName, dic)
 			if testCase.errorExpected {
 				require.Error(t, err)
 				assert.NotEmpty(t, err.Error(), "Error message is empty")
@@ -206,7 +207,7 @@ func TestReadingsByDeviceName(t *testing.T) {
 	}
 	for _, testCase := range tests {
 		t.Run(testCase.name, func(t *testing.T) {
-			readings, total, err := ReadingsByDeviceName(testCase.offset, testCase.limit, testCase.deviceName, dic)
+			readings, total, err := ReadingsByDeviceName(query.Parameters{Offset: testCase.offset, Limit: testCase.limit}, testCase.deviceName, dic)
 			if testCase.errorExpected {
 				require.Error(t, err)
 				assert.NotEmpty(t, err.Error(), "Error message is empty")

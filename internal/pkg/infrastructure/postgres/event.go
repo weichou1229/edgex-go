@@ -22,7 +22,7 @@ import (
 )
 
 // AllEvents queries the events with the given range, offset, and limit
-func (c *Client) AllEvents(offset, limit int) ([]model.Event, errors.EdgeX) {
+func (c *Client) AllEvents(offset int, limit int) ([]model.Event, errors.EdgeX) {
 	ctx := context.Background()
 	offset, validLimit := getValidOffsetAndLimit(offset, limit)
 
